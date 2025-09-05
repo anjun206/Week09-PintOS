@@ -39,14 +39,17 @@
 #endif
 
 /* Page-map-level-4 with kernel mappings only. */
+/* 커널 매핑만 포함하는 페이지 맵 레벨 4 테이블(PML4) */
 uint64_t *base_pml4;
 
 #ifdef FILESYS
 /* -f: Format the file system? */
+/* -f: 파일 시스템을 포맷할 것인가? */
 static bool format_filesys;
 #endif
 
 /* -q: Power off after kernel tasks complete? */
+/* -q: 커널 작업 완료 후 전원 종료 여부 */
 bool power_off_when_done;
 
 bool thread_tests;
@@ -65,24 +68,30 @@ static void print_stats (void);
 int main (void) NO_RETURN;
 
 /* Pintos main program. */
+/* Pintos 메인 프로그램 */
 int
 main (void) {
 	uint64_t mem_end;
 	char **argv;
 
 	/* Clear BSS and get machine's RAM size. */
+	/* BSS 영역을 초기화하고, 머신의 RAM 크기를 얻는다. */
 	bss_init ();
 
 	/* Break command line into arguments and parse options. */
+	/* 커맨드 라인을 인자 단위로 나누고 옵션을 파싱한다. */
 	argv = read_command_line ();
 	argv = parse_options (argv);
 
 	/* Initialize ourselves as a thread so we can use locks,
 	   then enable console locking. */
+	/* 자신을 스레드로 초기화하여 락을 사용할 수 있게 하고,
+	   이후 콘솔 락킹을 활성화한다. */
 	thread_init ();
 	console_init ();
 
 	/* Initialize memory system. */
+	/* 메모리 시스템 초기화 */
 	mem_end = palloc_init ();
 	malloc_init ();
 	paging_init (mem_end);
@@ -93,6 +102,7 @@ main (void) {
 #endif
 
 	/* Initialize interrupt handlers. */
+	/* 인터럽트 핸들러 초기화 */
 	intr_init ();
 	timer_init ();
 	kbd_init ();
@@ -102,12 +112,14 @@ main (void) {
 	syscall_init ();
 #endif
 	/* Start thread scheduler and enable interrupts. */
+	/* 스레드 스케줄러를 시작하고 인터럽트를 활성화한다. */
 	thread_start ();
 	serial_init_queue ();
 	timer_calibrate ();
 
 #ifdef FILESYS
 	/* Initialize file system. */
+	/* 파일 시스템 초기화 */
 	disk_init ();
 	filesys_init (format_filesys);
 #endif
@@ -119,15 +131,18 @@ main (void) {
 	printf ("Boot complete.\n");
 
 	/* Run actions specified on kernel command line. */
+	/* 커널 커맨드 라인에서 지정된 작업 실행 */
 	run_actions (argv);
 
 	/* Finish up. */
+	/* 마무리 처리 */
 	if (power_off_when_done)
 		power_off ();
 	thread_exit ();
 }
 
 /* Clear BSS */
+/* BSS 영역을 0으로 초기화 */
 static void
 bss_init (void) {
 	/* The "BSS" is a segment that should be initialized to zeros.
@@ -136,6 +151,13 @@ bss_init (void) {
 
 	   The start and end of the BSS segment is recorded by the
 	   linker as _start_bss and _end_bss.  See kernel.lds. */
+
+	   /* "BSS"는 0으로 초기화되어야 하는 세그먼트이다.
+	   디스크에 실제로 저장되지도 않고 커널 로더가 0으로 초기화하지도 않으므로,
+	   우리가 직접 0으로 채워야 한다.
+
+	   BSS 세그먼트의 시작과 끝은 링커가 _start_bss, _end_bss 기호로 기록한다.
+	   자세한 내용은 kernel.lds 참조. */
 	extern char _start_bss, _end_bss;
 	memset (&_start_bss, 0, &_end_bss - &_start_bss);
 }
@@ -143,6 +165,9 @@ bss_init (void) {
 /* Populates the page table with the kernel virtual mapping,
  * and then sets up the CPU to use the new page directory.
  * Points base_pml4 to the pml4 it creates. */
+/* 커널 가상 매핑으로 페이지 테이블을 채운 뒤,
+ * CPU가 새로운 페이지 디렉토리를 사용하도록 설정한다.
+ * 생성한 pml4를 base_pml4에 저장한다. */
 static void
 paging_init (uint64_t mem_end) {
 	uint64_t *pml4, *pte;
@@ -152,6 +177,8 @@ paging_init (uint64_t mem_end) {
 	extern char start, _end_kernel_text;
 	// Maps physical address [0 ~ mem_end] to
 	//   [LOADER_KERN_BASE ~ LOADER_KERN_BASE + mem_end].
+	// 물리 주소 [0 ~ mem_end]를
+	//   [LOADER_KERN_BASE ~ LOADER_KERN_BASE + mem_end]로 매핑한다.
 	for (uint64_t pa = 0; pa < mem_end; pa += PGSIZE) {
 		uint64_t va = (uint64_t) ptov(pa);
 
@@ -169,6 +196,7 @@ paging_init (uint64_t mem_end) {
 
 /* Breaks the kernel command line into words and returns them as
    an argv-like array. */
+/* 커널 커맨드 라인을 단어 단위로 나누어 argv 형태의 배열로 반환한다. */
 static char **
 read_command_line (void) {
 	static char *argv[LOADER_ARGS_LEN / 2 + 1];
@@ -202,6 +230,7 @@ read_command_line (void) {
 
 /* Parses options in ARGV[]
    and returns the first non-option argument. */
+/* ARGV[]에 있는 옵션을 파싱하고, 옵션이 아닌 첫 번째 인자를 반환한다. */
 static char **
 parse_options (char **argv) {
 	for (; *argv != NULL && **argv == '-'; argv++) {
@@ -235,6 +264,7 @@ parse_options (char **argv) {
 }
 
 /* Runs the task specified in ARGV[1]. */
+/* ARGV[1]에 지정된 작업을 실행한다. */
 static void
 run_task (char **argv) {
 	const char *task = argv[1];
@@ -254,6 +284,7 @@ run_task (char **argv) {
 
 /* Executes all of the actions specified in ARGV[]
    up to the null pointer sentinel. */
+/* ARGV[]에 지정된 모든 동작을 NULL 포인터가 나올 때까지 실행한다. */
 static void
 run_actions (char **argv) {
 	/* An action. */
@@ -301,6 +332,7 @@ run_actions (char **argv) {
 
 /* Prints a kernel command line help message and powers off the
    machine. */
+/* 커널 커맨드 라인 도움말을 출력하고 머신의 전원을 끈다. */
 static void
 usage (void) {
 	printf ("\nCommand line syntax: [OPTION...] [ACTION...]\n"
@@ -336,6 +368,8 @@ usage (void) {
 
 /* Powers down the machine we're running on,
    as long as we're running on Bochs or QEMU. */
+/* 현재 실행 중인 머신을 종료한다.
+   (Bochs나 QEMU에서 실행되는 경우에만 동작) */
 void
 power_off (void) {
 #ifdef FILESYS
@@ -350,6 +384,7 @@ power_off (void) {
 }
 
 /* Print statistics about Pintos execution. */
+/* Pintos 실행에 관한 통계 정보를 출력한다. */
 static void
 print_stats (void) {
 	timer_print_stats ();

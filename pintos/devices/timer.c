@@ -7,6 +7,7 @@
 #include "threads/io.h"
 #include "threads/synch.h"
 #include "threads/thread.h"
+#include "list.h"
 
 /* See [8254] for hardware details of the 8254 timer chip. */
 
@@ -19,6 +20,10 @@
 
 /* Number of timer ticks since OS booted. */
 static int64_t ticks;
+
+/* 슬립 리스트 */
+static struct list sleep_list;
+
 
 /* Number of loops per timer tick.
    Initialized by timer_calibrate(). */
@@ -37,6 +42,7 @@ timer_init (void) {
 	/* 8254 input frequency divided by TIMER_FREQ, rounded to
 	   nearest. */
 	uint16_t count = (1193180 + TIMER_FREQ / 2) / TIMER_FREQ;
+	list_init(&sleep_list);
 
 	outb (0x43, 0x34);    /* CW: counter 0, LSB then MSB, mode 2, binary. */
 	outb (0x40, count & 0xff);
@@ -88,13 +94,23 @@ timer_elapsed (int64_t then) {
 }
 
 /* Suspends execution for approximately TICKS timer ticks. */
+/* 프로젝트 1의 첫번째 과제다 busy waiting의 추악한 코드를 멀끔하게 리모델링 해주기 */
+static bool wakeup_less(const struct list_elem *a, const struct list_elem *b, void *aux) {
+    const struct thread *ta = list_entry(a, struct thread, elem);
+    const struct thread *tb = list_entry(b, struct thread, elem);
+    return ta->wakeup_tick < tb->wakeup_tick;
+}
 void
 timer_sleep (int64_t ticks) {
-	int64_t start = timer_ticks ();
-
-	ASSERT (intr_get_level () == INTR_ON);
-	while (timer_elapsed (start) < ticks)
-		thread_yield ();
+	if (ticks <= 0) return;
+	enum intr_level old = intr_disable();
+	int64_t wakeup = timer_ticks() + ticks;
+	struct thread *cur = thread_current();
+	
+	cur->wakeup_tick = wakeup;
+	list_insert_ordered(&sleep_list, &cur->elem, wakeup_less, NULL);
+	thread_block();
+	intr_set_level(old);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -125,7 +141,15 @@ timer_print_stats (void) {
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
-	thread_tick ();
+	thread_tick();
+	while (!list_empty(&sleep_list)) {
+		struct list_elem *e = list_front(&sleep_list);
+		struct thread    *t = list_entry(e, struct thread, elem);
+		if (t->wakeup_tick <= ticks) {
+			list_pop_front(&sleep_list);
+			thread_unblock(t);
+		} else break;
+	}
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
