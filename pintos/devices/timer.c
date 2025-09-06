@@ -90,12 +90,23 @@ timer_elapsed (int64_t then) {
 /* Suspends execution for approximately TICKS timer ticks. */
 void
 timer_sleep (int64_t ticks) {
-	int64_t start = timer_ticks ();
+	int64_t start = timer_ticks ();		//timer_sleep이 호출된 현재 시각을 start 변수에 저장
+	thread_sleep(start + ticks);		//스레드를 잠재우고 깨어날 시간을 현재 시간(timer_ticks) + 잠들고 싶은 시간(ticks)
 
 	ASSERT (intr_get_level () == INTR_ON);
-	while (timer_elapsed (start) < ticks)
-		thread_yield ();
 }
+
+	/*
+	struct thread *t = thread_current();		//현재 실행중인 스레드 정보 가져옴 t에 저장
+	t->wakeup_tick = start + ticks;				//현재 실행중인 스레드의 깨어날 시간을 현재 시간(thread_current) + 잠들고 싶은 시간(ticks)
+	list_push_back(&sleep_list, &t->elem);
+
+	
+	//현재 시각에서 start를 뺀 시간이 목표 시간(ticks)보다 작은 동안 계속 반복
+	while (timer_elapsed (start) < ticks)
+		//CPU를 잠깐 다른 스레드에게 양보해줌, ★ready_list 젤 뒤로 갔다가 다시 자기 차례가 오면 돌아옴
+		thread_yield ();
+	*/
 
 /* Suspends execution for approximately MS milliseconds. */
 void
@@ -125,8 +136,16 @@ timer_print_stats (void) {
 static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
+	thread_wakeup(ticks);		//스레드 깨우기 함수 호출
 	thread_tick ();
 }
+	/*
+	struct list_elem *e;
+	//리스트 순회 : 리스트 처음부터 다음으로 넘어가면서 끝이 나올때까지 반복
+	for (e = list_begin (); e != list_end (list); e = list_next (e)) {
+    	// 여기서 e를 사용해서 작업을 수행!
+	}
+	*/
 
 /* Returns true if LOOPS iterations waits for more than one timer
    tick, otherwise false. */
