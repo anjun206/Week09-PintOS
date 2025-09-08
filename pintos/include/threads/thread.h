@@ -90,12 +90,18 @@ struct thread {
 	tid_t tid;                          /* Thread identifier. */
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
-	int priority;                       /* Priority. */
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
 
+	/* 기상 틱 */
 	int64_t wakeup_tick;
+ 
+	/* 우선순위 */
+	int base_priority;
+	int priority;                       /* Priority. */
+	struct lock * waiting_lock;
+	struct list locks;
 
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
@@ -110,6 +116,10 @@ struct thread {
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
 };
+
+struct lock;
+struct semaphore;
+struct condition;
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
