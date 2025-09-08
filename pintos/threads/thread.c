@@ -344,15 +344,6 @@ thread_unblock (struct thread *t) {
 	t->status = THREAD_READY;
 	list_insert_ordered (&ready_list, &t->elem, prio_greater, NULL);
 	intr_set_level (old_level);
-
-	if (!intr_context ()) {
-		struct thread *cur = thread_current ();
-		struct thread *top = NULL;
-		if (!list_empty (&ready_list))
-			top = list_entry (list_front (&ready_list), struct thread, elem);
-		if (top && top->priority > cur->priority)
-			thread_yield ();
-	}
 }
 
 /* Returns the name of the running thread. */
@@ -475,7 +466,6 @@ donate_chain_from (struct thread *donor) {
 
     if (holder->priority < prio) {
       	holder->priority = prio;
-	    resort_ready_if_ready (holder);
     }
 
     if (holder->waiting_lock == NULL)
