@@ -275,6 +275,13 @@ thread_create (const char *name, int priority,
 	/* 실행 준비 큐(ready queue)에 추가 */
 	thread_unblock (t);
 
+	enum intr_level old = intr_disable ();
+	if (t->priority > thread_current ()->priority) {
+		if (intr_context ()) intr_yield_on_return ();
+		else                 thread_yield ();
+	}
+	intr_set_level (old);
+
 	return tid;
 }
 
@@ -311,6 +318,14 @@ static bool prio_greater(const struct list_elem *a, const struct list_elem *b, v
     const struct thread *tb = list_entry(b, struct thread, elem);
 	return ta->priority > tb->priority;
 }
+static bool prio_less (const struct list_elem *a,
+                       const struct list_elem *b,
+                       void *aux UNUSED) {
+  const struct thread *ta = list_entry (a, struct thread, elem);
+  const struct thread *tb = list_entry (b, struct thread, elem);
+  return ta->priority < tb->priority;
+}
+
 
 /* 차단(blocked)된 스레드 T를 실행 준비(ready) 상태로 전환한다.
    T가 blocked 상태가 아니라면 오류이다. (실행 중인 스레드를 ready로 만들고 싶다면
@@ -326,17 +341,18 @@ thread_unblock (struct thread *t) {
 	ASSERT (is_thread (t));
 
 	old_level = intr_disable ();
-	ASSERT (t->status == THREAD_BLOCKED);
 	t->status = THREAD_READY;
 	list_insert_ordered (&ready_list, &t->elem, prio_greater, NULL);
-	bool preempt =(t->priority > thread_current()->priority) && (thread_current() != idle_thread);
-	if (intr_context()) {
-		if (preempt) intr_yield_on_return();
-			intr_set_level(old_level);
-		} else {
-			intr_set_level(old_level);
-		if (preempt) thread_yield();
-		}
+	intr_set_level (old_level);
+
+	if (!intr_context ()) {
+		struct thread *cur = thread_current ();
+		struct thread *top = NULL;
+		if (!list_empty (&ready_list))
+			top = list_entry (list_front (&ready_list), struct thread, elem);
+		if (top && top->priority > cur->priority)
+			thread_yield ();
+	}
 }
 
 /* Returns the name of the running thread. */
@@ -418,7 +434,7 @@ thread_yield (void) {
 }
 
 /* ready_list에서 우선순위를 다시 반영하도록 재삽입 (READY일 때만) */
-static void
+void
 resort_ready_if_ready (struct thread *t) {
   if (t->status == THREAD_READY) {
 	list_remove (&t->elem);
@@ -436,7 +452,7 @@ refresh_priority(struct thread *t) {
 		lock_ele = list_next(lock_ele)) {
 		struct lock *L = list_entry(lock_ele, struct lock, elem);
 		if (!list_empty(&L->semaphore.waiters)) {
-			struct thread *top = list_entry(list_front(&L->semaphore.waiters),
+			struct thread *top = list_entry(list_max(&L->semaphore.waiters, prio_less, NULL),
 										struct thread, elem);
 			if (base < top->priority) base = top->priority;
 		}
@@ -455,13 +471,15 @@ donate_chain_from (struct thread *donor) {
   while (lock != NULL && lock->holder != NULL && depth++ < 8) {
     struct thread *holder = lock->holder;
 
+	refresh_priority(holder);
+
     if (holder->priority < prio) {
-      holder->priority = prio;
-      resort_ready_if_ready (holder);
+      	holder->priority = prio;
+	    resort_ready_if_ready (holder);
     }
 
     if (holder->waiting_lock == NULL)
-      break;
+      	break;
     lock = holder->waiting_lock;
   }
 }
@@ -471,18 +489,26 @@ donate_chain_from (struct thread *donor) {
 void
 thread_set_priority (int new_priority) {
 	enum intr_level old = intr_disable();
+
 	struct thread * cur = thread_current();
+
 	if (new_priority < PRI_MIN) new_priority = PRI_MIN;
 	if (new_priority > PRI_MAX) new_priority = PRI_MAX;
 	cur->base_priority = new_priority;	
+
 	refresh_priority(cur);
+
 	bool preempt = false;
+
 	if (cur->waiting_lock != NULL) donate_chain_from(cur);
+
 	if (!list_empty(&ready_list)) {
 		struct thread *top = list_entry(list_front(&ready_list), struct thread, elem);
 		preempt = (top->priority > cur->priority);
 	}
+
 	intr_set_level(old);
+
 	if (preempt) thread_yield();
 }
 
