@@ -300,24 +300,26 @@ lock_acquire (struct lock *lock) {
 
 	struct thread * cur = thread_current();
 	
-	if (lock->holder != NULL) {
-		enum intr_level old = intr_disable();
-		cur->waiting_lock = lock;
+   if (thread_mlfqs != true) {
+      if (lock->holder != NULL) {
+         enum intr_level old = intr_disable();
+         cur->waiting_lock = lock;
 
-		struct thread *hold = lock->holder;
-		int depth = 0;
+         struct thread *hold = lock->holder;
+         int depth = 0;
 
-		while (hold && depth++ < 8) {
-			if (cur->priority > hold->priority) {
-				hold->priority = cur->priority;
-            resort_ready_if_ready (hold);
-			}
-			if (hold->waiting_lock == NULL) break;
-			hold = hold->waiting_lock->holder;
-		}
+         while (hold && depth++ < 8) {
+            if (cur->priority > hold->priority) {
+               hold->priority = cur->priority;
+               resort_ready_if_ready (hold);
+            }
+            if (hold->waiting_lock == NULL) break;
+            hold = hold->waiting_lock->holder;
+         }
 
-		intr_set_level (old);
-	}
+         intr_set_level (old);
+      }
+   }
 	sema_down (&lock->semaphore);
 
 	cur->waiting_lock = NULL;
@@ -370,19 +372,21 @@ lock_release (struct lock *lock) {
 	struct thread * cur = thread_current();
 	list_remove(&lock->elem);
 
-	int base = cur->base_priority;
-	struct list_elem *lock_ele;
-	for(lock_ele = list_begin(&cur->locks);
-		lock_ele != list_end(&cur->locks);
-		lock_ele = list_next(lock_ele)) {
-		struct lock *L = list_entry(lock_ele, struct lock, elem);
-		if (!list_empty(&L->semaphore.waiters)) {
-			struct thread *top = list_entry(list_max(&L->semaphore.waiters, prio_less, NULL),
-                                      struct thread, elem);
-			if (base < top->priority) base = top->priority;
-		}
-	}
+   if (thread_mlfqs != true) {
+      int base = cur->base_priority;
+      struct list_elem *lock_ele;
+      for(lock_ele = list_begin(&cur->locks);
+         lock_ele != list_end(&cur->locks);
+         lock_ele = list_next(lock_ele)) {
+         struct lock *L = list_entry(lock_ele, struct lock, elem);
+         if (!list_empty(&L->semaphore.waiters)) {
+            struct thread *top = list_entry(list_max(&L->semaphore.waiters, prio_less, NULL),
+                                       struct thread, elem);
+            if (base < top->priority) base = top->priority;
+         }
+      }
 	cur->priority = base;
+   }
    resort_ready_if_ready(cur);
 	lock->holder = NULL;
 	intr_set_level(old);
@@ -520,7 +524,7 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED) {
 	ASSERT (cond != NULL);
 	ASSERT (lock != NULL);
 	ASSERT (!intr_context ());
-	ASSERT (lock_held_by_current_thread (lock));
+	ASSERT (lock_held_by_current_thread(lock));
 
 	if (!list_empty (&cond->waiters)){
 		struct list_elem *best_elem = list_max(&cond->waiters, waiter_less, NULL);

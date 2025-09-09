@@ -2,6 +2,11 @@
     "files.associations": {
         "array": "c",
         "string_view": "c",
-        "synch.h": "c"
+        "synch.h": "c",
+        "thread.h": "c",
+        "palloc.h": "c",
+        "vaddr.h": "c",
+        "executor": "c",
+        "timer.h": "c"
     }
 }

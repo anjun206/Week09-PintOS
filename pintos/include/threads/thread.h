@@ -103,6 +103,13 @@ struct thread {
 	struct lock * waiting_lock;
 	struct list locks;
 
+	/* mlfqs */
+	int recent_cpu;
+	int nice;
+
+	/* 모든 스레드 순회 */
+	struct list_elem allelem;
+
 #ifdef USERPROG
 	/* Owned by userprog/process.c. */
 	uint64_t *pml4;                     /* Page map level 4 */
@@ -125,6 +132,9 @@ struct condition;
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
 extern bool thread_mlfqs;
+
+/* 1분 부하 평균 */
+extern int load_avg;
 
 void thread_init (void);
 void thread_start (void);
