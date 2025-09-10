@@ -91,7 +91,12 @@ struct thread {
 	enum thread_status status;          /* Thread state. */
 	char name[16];                      /* Name (for debugging purposes). */
 	int priority;                       /* Priority. */
-	unsigned wakeup_tick;				/* 스레드가 깨어날 시간 저장 */
+	int64_t wakeup_tick;				/* 스레드가 깨어날 시간 저장 */
+	int origin_priority;				/* 기부 받기 전 원래 가지고 있던 우선순위 */
+
+	struct lock *wait_on_lock;			/* 현재 내가 기다리고 있는 락을 가리킴 */
+	struct list donations;				/* 남아있는 기부자 명단 */
+	struct list_elem donation_elem;		/* 기부자 명단 연결고리 */
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
@@ -133,6 +138,10 @@ void thread_sleep(int64_t wakeup_tick);
 /* 스레드를 깨우는 함수 */
 void thread_wakeup(int64_t ticks);
 
+/* 우선순위 비교 함수 */
+bool compare_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+bool compare_donation_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
 struct thread *thread_current (void);
 tid_t thread_tid (void);
 const char *thread_name (void);
@@ -149,5 +158,7 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void do_iret (struct intr_frame *tf);
+
+extern int64_t next_wakeup_tick;
 
 #endif /* threads/thread.h */
