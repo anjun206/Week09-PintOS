@@ -13,40 +13,34 @@ typedef int32_t fp_t;
 
 /* ---------- 변환 계열 ---------- */
 
-/* 정수 n -> 고정소수점 (n * f)
- * 예: INT_TO_FP(3) == 3.0
- */
+/* 정수 n -> 고정소수점 */
 #define INT_TO_FP(n) ((fp_t)((n) * F))
 
-/* 고정소수점 x -> 정수 (0쪽 절삭; truncate)
- * 우선순위 공식처럼 '버림(내림)'이 요구될 때 사용.
- */
+/* 고정소수점 x -> 정수 (0쪽 절삭; truncate) */
 #define FP_TO_INT_ZERO(x) ((int)((x) / F))
 
-/* 고정소수점 x -> 정수 (반올림; round to nearest)
- * 통계값을 보기 좋게 내릴 때 등 반올림이 필요하면 사용.
- */
+/* 고정소수점 x -> 정수 (반올림; round to nearest) */
 #define FP_TO_INT_NEAR(x) ((int)(( (x) >= 0 ? (x) + F/2 : (x) - F/2 ) / F))
 
 
 /* ---------- 기본 연산 ---------- */
 
-/* 고정 + 고정: 같은 형식끼리의 합. recent_cpu 누적 등. */
+/* 고정 + 고정 */
 #define FP_ADD(x, y) ((fp_t)((x) + (y)))
 
-/* 고정 - 고정: 같은 형식끼리의 차. */
+/* 고정 - 고정 */
 #define FP_SUB(x, y) ((fp_t)((x) - (y)))
 
-/* 고정 + 정수: x + n (실제로는 n*f를 더함) */
+/* 고정 + 정수 */
 #define FP_ADD_INT(x, n) ((fp_t)((x) + (n) * F))
 
-/* 고정 - 정수: x - n (실제로는 n*f를 뺌) */
+/* 고정 - 정수 */
 #define FP_SUB_INT(x, n) ((fp_t)((x) - (n) * F))
 
-/* 고정 × 정수: 배수 연산. 스케일 변화 없음. */
+/* 고정 × 정수 */
 #define FP_MUL_INT(x, n) ((fp_t)((x) * (n)))
 
-/* 고정 ÷ 정수: 몫 연산. 스케일 변화 없음. */
+/* 고정 ÷ 정수 */
 #define FP_DIV_INT(x, n) ((fp_t)((x) / (n)))
 
 
@@ -55,20 +49,17 @@ typedef int32_t fp_t;
 /* 고정 × 고정:
  * - (x * y)는 스케일이 f^2가 되므로 /f로 되돌림
  * - 오버플로 방지를 위해 중간 계산은 64비트로
- * 예: coef = (2*load_avg)/(2*load_avg+1) 계산 시 내부적으로 사용
  */
 #define FP_MUL(x, y) ((fp_t)(( (int64_t)(x) * (y) ) / F))
 
 /* 고정 ÷ 고정:
  * - (x / y)는 스케일이 1/f가 되므로, 먼저 x*f를 해서 스케일 맞춘 뒤 /y
  * - 역시 64비트 중간형을 사용
- * 예: recent_cpu = coef * recent_cpu + nice
  */
 #define FP_DIV(x, y) ((fp_t)(( (int64_t)(x) * F ) / (y)))
 
 
-/* (선택) 자주 쓰는 상수 비율을 고정값으로 만들어 두면 편리합니다. */
 #define FP_59_60 ((int32_t)(( (int64_t)59 * F ) / 60))                        /* 59/60 */
 #define FP_1_60  ((int32_t)(( (int64_t) 1 * F ) / 60))                        /*  1/60 */
 
-#endif /* THREADS_FIXED_POINT_H */
+#endif
