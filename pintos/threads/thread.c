@@ -203,6 +203,73 @@ thread_start (void) {
 	sema_down (&idle_started);
 }
 
+static inline void
+update_load_avg_and_recent_cpu (void) {
+	// 인트럽트 on 이면 안되니까
+	ASSERT(intr_get_level() == INTR_OFF);
+	/* load avg */
+	int cur;
+	if (thread_current() != idle_thread) cur = 1; else cur = 0;
+	load_avg = FP_ADD(FP_MUL(FP_59_60, load_avg), FP_MUL_INT(FP_1_60, (list_size(&ready_list) + cur)));
+
+	/* recent cpu */
+	// idle 제외 스레드
+	struct list_elem *ele;
+	for (ele = list_begin(&all_list);
+			ele != list_end(&all_list);
+			ele = list_next(ele)) {
+
+		struct thread *th = list_entry(ele, struct thread, allelem);
+
+		if (th == idle_thread) continue;
+
+		th->recent_cpu = FP_ADD_INT(FP_MUL(FP_DIV(FP_MUL_INT(load_avg, 2), FP_ADD_INT(FP_MUL_INT(load_avg, 2), 1)), th->recent_cpu), th->nice);
+		}
+}
+
+
+
+static inline void
+priority_calc (void) {
+	// 인트럽트 on 이면 안되니까
+	ASSERT(intr_get_level() == INTR_OFF);
+	struct list_elem *ele;
+	for (ele = list_begin(&all_list);
+			ele != list_end(&all_list);
+			ele = list_next(ele)) {
+			struct thread *th = list_entry(ele, struct thread, allelem);
+			if (th == idle_thread) continue;
+			
+			int new_priority
+			= PRI_MAX
+			- FP_TO_INT_ZERO(FP_DIV_INT(th->recent_cpu, 4))
+			- (th->nice * 2);
+
+			if (new_priority < PRI_MIN) new_priority = PRI_MIN;
+			if (new_priority > PRI_MAX) new_priority = PRI_MAX;
+
+			int old_priority = th->priority;
+			if (new_priority != old_priority) {
+			th->priority = new_priority;
+			if (th->status == THREAD_READY) {
+				list_remove(&th->elem);
+				list_insert_ordered(&ready_list, &th->elem, prio_greater, NULL);
+			}
+		}
+	}
+}
+
+static inline void
+mlfqs_maybe_preempt_on_return (void) {
+	// 인트럽트 on 이면 안되니까
+	ASSERT(intr_get_level() == INTR_OFF);
+	if (!list_empty(&ready_list)) {
+		struct thread *top = list_entry(list_front(&ready_list), struct thread, elem);
+		if (top->priority > thread_current()->priority)
+			intr_yield_on_return();
+	}
+}
+
 /* Called by the timer interrupt handler at each timer tick.
    Thus, this function runs in an external interrupt context. */
 /* 매 타이머 틱마다 타이머 인터럽트 핸들러가 호출한다.
@@ -231,80 +298,14 @@ thread_tick (void) {
 
 		/* 1초 일때 */
 		if ((timer_ticks() % TIMER_FREQ) == 0) {
-			/* load avg */
-			int cur;
-			if (t != idle_thread) cur = 1; else cur = 0;
-			load_avg = FP_ADD(FP_MUL(FP_59_60, load_avg), FP_MUL_INT(FP_1_60, (list_size(&ready_list) + cur)));
-
-			/* recent cpu */
-			// idle 제외 스레드
-			struct list_elem *ele;
-			for (ele = list_begin(&all_list);
-				 ele != list_end(&all_list);
-				 ele = list_next(ele)) {
-				 	struct thread *th = list_entry(ele, struct thread, allelem);
-
-				 	if (th == idle_thread) continue;
-
-				 	th->recent_cpu = FP_ADD_INT(FP_MUL(FP_DIV(FP_MUL_INT(load_avg, 2), FP_ADD_INT(FP_MUL_INT(load_avg, 2), 1)), th->recent_cpu), th->nice);
-				 	
-					int new_priority
-					= PRI_MAX
-					- FP_TO_INT_ZERO(FP_DIV_INT(th->recent_cpu, 4))
-					- (th->nice * 2);
-
-					if (new_priority < PRI_MIN) new_priority = PRI_MIN;
-					if (new_priority > PRI_MAX) new_priority = PRI_MAX;
-
-					th->priority = new_priority;
-						if (new_priority != th->priority) {
-						th->priority = new_priority;
-						if (th->status == THREAD_READY) {
-							list_remove(&th->elem);
-							list_insert_ordered(&ready_list, &th->elem, prio_greater, NULL);
-						}
-					}
-				}
-
-				if (!list_empty(&ready_list)) {
-					struct thread *top = list_entry(list_front(&ready_list), struct thread, elem);
-					if (top->priority > thread_current()->priority)
-						intr_yield_on_return();
-				}
+			update_load_avg_and_recent_cpu();
 			}
 
 		/* 4틱일 때 우선순위 계산 */
 		if ((timer_ticks() % 4) == 0) {
 			/* 우선 순위 */
-			struct list_elem *ele;
-			for (ele = list_begin(&all_list);
-				 ele != list_end(&all_list);
-				 ele = list_next(ele)) {
-					struct thread *th = list_entry(ele, struct thread, allelem);
-					if (th == idle_thread) continue;
-					
-					int new_priority
-					= PRI_MAX
-					- FP_TO_INT_ZERO(FP_DIV_INT(th->recent_cpu, 4))
-					- (th->nice * 2);
-
-					if (new_priority < PRI_MIN) new_priority = PRI_MIN;
-					if (new_priority > PRI_MAX) new_priority = PRI_MAX;
-
-					th->priority = new_priority;
-						if (new_priority != th->priority) {
-						th->priority = new_priority;
-						if (th->status == THREAD_READY) {
-							list_remove(&th->elem);
-							list_insert_ordered(&ready_list, &th->elem, prio_greater, NULL);
-						}
-					}
-				}
-				if (!list_empty(&ready_list)) {
-					struct thread *top = list_entry(list_front(&ready_list), struct thread, elem);
-					if (top->priority > thread_current()->priority)
-						intr_yield_on_return();
-			}
+			priority_calc ();
+			mlfqs_maybe_preempt_on_return();
 		}
 	}
 
