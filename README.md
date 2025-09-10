@@ -1,36 +1,75 @@
-# Week09 - team2
+# Week09 - Team2 🖥️  
+**PintOS Project - Gyejin Branch**
 
-*\- PintOS main브랜치-*
+---
 
-- **THREADS**
-  - Alarm clock
+## 📌 Project Overview
+본 프로젝트는 **PintOS 운영체제**의 스레드(Thread) 부분을 구현하고 테스트한 결과를 정리한 것입니다.  
+구현한 기능은 다음과 같습니다:
+
+- **Threads**
+  - Alarm Clock
   - Priority Scheduling
   - Advanced Scheduler
 
-=== Available Pintos Tests ===
-  1) alarm-single                 PASS
-  2) alarm-multiple               PASS
-  3) alarm-simultaneous           PASS
-  4) alarm-priority               PASS
-  5) alarm-zero                   PASS
-  6) alarm-negative               PASS
-  7) priority-change              PASS
-  8) priority-donate-one          PASS
-  9) priority-donate-multiple     PASS
- 10) priority-donate-multiple2    PASS
- 11) priority-donate-nest         FAIL
- 12) priority-donate-sema         FAIL
- 13) priority-donate-lower        PASS
- 14) priority-fifo                PASS
- 15) priority-preempt             PASS
- 16) priority-sema                PASS
- 17) priority-condvar             FAIL
- 18) priority-donate-chain        FAIL
- 19) mlfqs-load-1                 NONE
- 20) mlfqs-load-60                NONE
- 21) mlfqs-load-avg               NONE
- 22) mlfqs-recent-1               NONE
- 23) mlfqs-fair-2                 NONE
- 24) mlfqs-fair-20                NONE
- 25) mlfqs-nice-2                 NONE
- 26) mlfqs-nice-10                NONE
+---
+
+## ✅ Test Results
+
+### 🔔 Alarm Clock
+| Test | Result |
+|------|--------|
+| alarm-single       | ✅ PASS |
+| alarm-multiple     | ✅ PASS |
+| alarm-simultaneous | ✅ PASS |
+| alarm-priority     | ✅ PASS |
+| alarm-zero         | ✅ PASS |
+| alarm-negative     | ✅ PASS |
+
+### ⚡ Priority Scheduling
+| Test | Result |
+|------|--------|
+| priority-change          | ✅ PASS |
+| priority-donate-one      | ✅ PASS |
+| priority-donate-multiple | ✅ PASS |
+| priority-donate-multiple2| ✅ PASS |
+| priority-donate-nest     | ❌ FAIL |
+| priority-donate-sema     | ❌ FAIL |
+| priority-donate-lower    | ✅ PASS |
+| priority-fifo            | ✅ PASS |
+| priority-preempt         | ✅ PASS |
+| priority-sema            | ✅ PASS |
+| priority-condvar         | ❌ FAIL |
+| priority-donate-chain    | ❌ FAIL |
+
+### 📊 Advanced Scheduler (MLFQS)
+| Test | Result |
+|------|--------|
+| mlfqs-load-1   | 🚧 NONE |
+| mlfqs-load-60  | 🚧 NONE |
+| mlfqs-load-avg | 🚧 NONE |
+| mlfqs-recent-1 | 🚧 NONE |
+| mlfqs-fair-2   | 🚧 NONE |
+| mlfqs-fair-20  | 🚧 NONE |
+| mlfqs-nice-2   | 🚧 NONE |
+| mlfqs-nice-10  | 🚧 NONE |
+
+---
+
+## 📂 Summary
+- **Alarm Clock**: 모든 테스트 **성공** 🎉  
+- **Priority Scheduling**: 일부 테스트 **실패(4개)**  
+- **Advanced Scheduler**: 아직 구현하지 않음 🚧  
+
+---
+
+## 👨‍💻 Team Info
+- **Team Name**: Team2  
+- **Project Week**: Week09  
+- **Branch**: `gyejin`
+
+---
+
+## 📝 Notes
+- `priority-donate-nest`, `priority-donate-sema`, `priority-condvar`, `priority-donate-chain` 테스트에서 FAIL 발생  
+- Advanced Scheduler(MLFQS) 기능은 추후 구현 예정
